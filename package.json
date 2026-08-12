@@ -1,0 +1,39 @@
+{
+  "name": "grudge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "GRUDGE — top-down 3D web action game. Souls-like difficulty, physics-driven sword combat, procedural rivals with memory.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run lint && npm run test && vite build"
+  },
+  "dependencies": {
+    "bitecs": "0.3.40",
+    "howler": "^2.2.4",
+    "localforage": "^1.10.0",
+    "three": "^0.185.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.0",
+    "@types/howler": "^2.2.12",
+    "@types/three": "^0.185.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.0.0"
+  }
+}

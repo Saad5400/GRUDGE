@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dungeon Brawler</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT"
+  }
+}
+</script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0a10;font-family:"Trebuchet MS",Verdana,sans-serif;user-select:none}
+  canvas{display:block}
+  #hud{position:fixed;inset:0;pointer-events:none;color:#e8e2d0}
+  #hearts{position:absolute;top:18px;left:20px;display:flex;gap:6px}
+  .heart{width:22px;height:22px;background:#d43a3a;border:2px solid #1a0d0d;transform:rotate(45deg);border-radius:4px 50% 50% 50%;box-shadow:0 0 8px rgba(212,58,58,.5)}
+  .heart.empty{background:#3a2020;box-shadow:none}
+  #stats{position:absolute;top:16px;right:22px;text-align:right;font-size:15px;letter-spacing:1px;text-shadow:0 2px 4px #000}
+  #stats b{font-size:22px;color:#f5c452}
+  #msg{position:absolute;top:34%;width:100%;text-align:center;font-size:52px;font-weight:bold;letter-spacing:6px;color:#f5c452;text-shadow:0 4px 18px #000,0 0 40px rgba(245,196,82,.35);opacity:0;transition:opacity .4s}
+  #over{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,4,10,.72);pointer-events:auto}
+  #stambar{position:absolute;top:50px;left:20px;width:130px;height:7px;background:#241f2e;border:1px solid #000}
+  #stamfill{height:100%;width:100%;background:#e8d48a;transition:background .2s}
+  #stambar.low #stamfill{background:#d43a3a}
+  #over h1{font-size:56px;letter-spacing:8px;color:#d43a3a;text-shadow:0 4px 20px #000;margin:0 0 10px}
+  #over p{font-size:18px;color:#c9c2b0;margin:0 0 26px}
+  #over button{pointer-events:auto;font:inherit;font-size:18px;letter-spacing:2px;padding:12px 34px;background:#f5c452;color:#241a06;border:none;cursor:pointer;box-shadow:0 4px 0 #8a6a1e}
+  #over button:hover{background:#ffd76e}
+  #help{position:absolute;bottom:14px;width:100%;text-align:center;font-size:13px;color:#8f889c;letter-spacing:1px;text-shadow:0 1px 2px #000}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="hearts"></div>
+  <div id="stambar"><div id="stamfill"></div></div>
+  <div id="stats">WAVE <b id="wave">1</b><br>KILLS <span id="kills">0</span></div>
+  <div id="msg"></div>
+  <div id="over"><h1>YOU FELL</h1><p id="overstats"></p><button id="retry">RISE AGAIN</button></div>
+  <div id="help">Cursor IS the sword tip &nbsp;·&nbsp; drag far to walk &nbsp;·&nbsp; RIGHT CLICK plants your feet</div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- renderer / scene ----------
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0a12);
+scene.fog = new THREE.Fog(0x0b0a12, 26, 46);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 1, 100);
+const CAM_OFF = new THREE.Vector3(0, 15.5, 9.5);
+camera.position.copy(CAM_OFF); camera.lookAt(0,0,0);
+
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+// lights
+scene.add(new THREE.AmbientLight(0x3a3f5c, 1.1));
+const moon = new THREE.DirectionalLight(0x8ea0d8, 1.0);
+moon.position.set(-8,18,6); moon.castShadow = true;
+moon.shadow.mapSize.set(2048,2048);
+moon.shadow.camera.left=-22; moon.shadow.camera.right=22;
+moon.shadow.camera.top=22; moon.shadow.camera.bottom=-22;
+scene.add(moon);
+
+// ---------- arena ----------
+const ARENA = 17;               // half-size playable
+const tileMats = [0x2c2836,0x322d3d,0x282433,0x35303f].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.95}));
+const tileGeo = new THREE.BoxGeometry(2,.4,2);
+for(let x=-9;x<=9;x++)for(let z=-9;z<=9;z++){
+  const t=new THREE.Mesh(tileGeo,tileMats[(Math.abs(x*7+z*13))%4]);
+  t.position.set(x*2,-.2+((x*3+z*5)%3)*.02,z*2); t.receiveShadow=true; scene.add(t);
+}
+// walls
+const wallMat = new THREE.MeshStandardMaterial({color:0x1f1b29,roughness:.9});
+const wallGeo = new THREE.BoxGeometry(40,4,2);
+[[0,-19.8,0],[0,19.8,0],[-19.8,0,1],[19.8,0,1]].forEach(([x,z,rot])=>{
+  const w=new THREE.Mesh(wallGeo,wallMat); w.position.set(x,1.8,z);
+  if(rot)w.rotation.y=Math.PI/2; w.castShadow=w.receiveShadow=true; scene.add(w);
+});
+// pillars + torches
+const pillars=[]; // {x,z,r}
+const pilGeo=new THREE.BoxGeometry(1.6,4.4,1.6);
+const pilMat=new THREE.MeshStandardMaterial({color:0x262133,roughness:.85});
+const flameGeo=new THREE.BoxGeometry(.35,.35,.35);
+const flames=[];
+[[-10,-10],[10,-10],[-10,10],[10,10]].forEach(([x,z])=>{
+  const p=new THREE.Mesh(pilGeo,pilMat); p.position.set(x,2.2,z); p.castShadow=p.receiveShadow=true; scene.add(p);
+  pillars.push({x,z,r:1.35});
+  const fl=new THREE.Mesh(flameGeo,new THREE.MeshBasicMaterial({color:0xffb347}));
+  fl.position.set(x,4.9,z); scene.add(fl);
+  const li=new THREE.PointLight(0xff9a3c, 30, 14, 1.8); li.position.set(x,5.2,z); scene.add(li);
+  flames.push({fl,li,seed:Math.random()*9});
+});
+
+// ---------- audio ----------
+let AC=null;
+function beep(f,dur,type='square',vol=.08,slide=0){
+  if(!AC) return;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=f;
+  if(slide)o.frequency.linearRampToValueAtTime(f+slide,AC.currentTime+dur);
+  g.gain.setValueAtTime(vol,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
+  o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+dur);
+}
+
+// ---------- player ----------
+function buildPlayer(){
+  const g=new THREE.Group();
+  const skin=new THREE.MeshStandardMaterial({color:0xd9a066,roughness:.8});
+  const tunic=new THREE.MeshStandardMaterial({color:0x3f6fb5,roughness:.7});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.8,1,.5),tunic); body.position.y=1.1; body.castShadow=true;
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.62,.62,.62),skin); head.position.y=1.95; head.castShadow=true;
+  const legs=new THREE.Mesh(new THREE.BoxGeometry(.72,.6,.44),new THREE.MeshStandardMaterial({color:0x2b2b38,roughness:.8})); legs.position.y=.42;
+  g.add(body,head,legs);
+  // arm pivots at both shoulders (two-handed grip toward the sword)
+  const pivot=new THREE.Group(); pivot.position.set(.5,1.55,0); g.add(pivot);
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(.26,.7,.26),skin); arm.position.y=-.3; arm.castShadow=true; pivot.add(arm);
+  const pivotL=new THREE.Group(); pivotL.position.set(-.5,1.55,0); g.add(pivotL);
+  const armL=new THREE.Mesh(new THREE.BoxGeometry(.26,.7,.26),skin); armL.position.y=-.3; armL.castShadow=true; pivotL.add(armL);
+  return {g,pivot,pivotL,head,body};
+}
+// the sword is a real world-space object: its visible blade IS the physics blade
+function buildSword(){
+  const s=new THREE.Group();
+  const steel=new THREE.MeshStandardMaterial({color:0xd8dde8,roughness:.25,metalness:.9,emissive:0x334,emissiveIntensity:.35});
+  const steelDark=new THREE.MeshStandardMaterial({color:0x9aa3b5,roughness:.4,metalness:.85});
+  const gold=new THREE.MeshStandardMaterial({color:0xf5c452,metalness:.8,roughness:.4});
+  const wood=new THREE.MeshStandardMaterial({color:0x5a3b1e,roughness:.9});
+  const blade=new THREE.Mesh(new THREE.BoxGeometry(.3,.1,1.7),steel); blade.position.z=1.05; blade.castShadow=true;
+  const fuller=new THREE.Mesh(new THREE.BoxGeometry(.1,.12,1.5),steelDark); fuller.position.z=1.0;
+  const tipG=new THREE.Mesh(new THREE.BoxGeometry(.3,.1,.5),steel); tipG.position.z=2.05; tipG.castShadow=true;
+  const tip2=new THREE.Mesh(new THREE.BoxGeometry(.16,.09,.22),steel); tip2.position.z=2.35;
+  const guard=new THREE.Mesh(new THREE.BoxGeometry(.78,.14,.18),gold); guard.position.z=.2; guard.castShadow=true;
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(.14,.14,.42),wood); grip.position.z=-.05;
+  const pommel=new THREE.Mesh(new THREE.BoxGeometry(.2,.2,.14),gold); pommel.position.z=-.3;
+  s.add(blade,fuller,tipG,tip2,guard,grip,pommel);
+  return s;
+}
+const SWORD_LEN=2.45; // grip to tip at scale 1
+const P = buildPlayer(); scene.add(P.g);
+P.pivot.rotation.order='YXZ'; P.pivotL.rotation.order='YXZ';
+const worldSword = buildSword(); scene.add(worldSword);
+// sword trail (physics-driven ribbon following the actual blade)
+const TRAIL_N=14;
+const trailGeo=new THREE.BufferGeometry();
+const trailPos=new Float32Array(TRAIL_N*2*3);
+trailGeo.setAttribute('position',new THREE.BufferAttribute(trailPos,3));
+const trailIdx=[];
+for(let i=0;i<TRAIL_N-1;i++){const a=i*2;trailIdx.push(a,a+1,a+2,a+1,a+3,a+2);}
+trailGeo.setIndex(trailIdx);
+const trailMat=new THREE.MeshBasicMaterial({color:0xcfe0ff,transparent:true,opacity:.55,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending});
+const trail=new THREE.Mesh(trailGeo,trailMat); trail.frustumCulled=false; trail.visible=false; scene.add(trail);
+const trailPts=[]; // {tip:Vector3, base:Vector3}
+
+const player = {
+  pos:new THREE.Vector3(0,0,4), vel:new THREE.Vector3(), r:.55,
+  hp:5, maxHp:5, face:0, faceVel:0, invuln:0,
+  stam:1, swingId:0, swingDir:new THREE.Vector3(0,0,1),
+  tip:new THREE.Vector3(0,.75,1.6), tipVel:new THREE.Vector3(),
+  tipPrev:new THREE.Vector3(0,.75,1.6)
+};
+
+// ---------- enemies / particles ----------
+const enemies=[], parts=[], debris=[];
+const slimeMat = new THREE.MeshStandardMaterial({color:0x5fae4a,roughness:.5});
+const slimeDark = new THREE.MeshStandardMaterial({color:0x3d7a30,roughness:.6});
+const bruteMat = new THREE.MeshStandardMaterial({color:0x8a3535,roughness:.7});
+const eyeMat = new THREE.MeshBasicMaterial({color:0x111111});
+
+function makeSlime(big){
+  const s = big?1.7:1;
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.9*s,.8*s,.9*s), big?bruteMat.clone():slimeMat.clone());
+  body.position.y=.4*s; body.castShadow=true;
+  const inner=new THREE.Mesh(new THREE.BoxGeometry(.5*s,.45*s,.5*s), big?new THREE.MeshStandardMaterial({color:0x5c2020}):slimeDark.clone());
+  inner.position.y=.38*s;
+  const e1=new THREE.Mesh(new THREE.BoxGeometry(.12*s,.14*s,.05),eyeMat); e1.position.set(-.18*s,.5*s,.46*s);
+  const e2=e1.clone(); e2.position.x=.18*s;
+  g.add(body,inner,e1,e2);
+  return {g,body,s};
+}
+function spawnEnemy(big){
+  const ang=Math.random()*Math.PI*2;
+  const d=ARENA-1.5;
+  const x=Math.cos(ang)*d, z=Math.sin(ang)*d;
+  const m=makeSlime(big);
+  m.g.position.set(x,0,z); scene.add(m.g);
+  enemies.push({
+    mesh:m.g, body:m.body, mat:m.body.material,
+    pos:new THREE.Vector3(x,0,z), vel:new THREE.Vector3(), y:6, vy:0,
+    r: big?1.0:.55, hp: big?6:2, maxHp:big?6:2,
+    big, hopT:Math.random()*.8, stun:0, flash:0, touchCD:0, hitCD:0, lastSwing:-1, circleDir:Math.random()<.5?-1:1,
+    baseColor: m.body.material.color.clone()
+  });
+}
+function burst(pos,color,n,pow){
+  for(let i=0;i<n;i++){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(.16,.16,.16),new THREE.MeshBasicMaterial({color}));
+    m.position.copy(pos);
+    scene.add(m);
+    parts.push({m,vel:new THREE.Vector3((Math.random()-.5)*pow,Math.random()*pow*.8+2,(Math.random()-.5)*pow),life:.6+Math.random()*.4});
+  }
+}
+
+// ---------- input: mouse only ----------
+const mouse=new THREE.Vector2(); const ray=new THREE.Raycaster(); const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const aimPt=new THREE.Vector3(0,0,4);
+let mouseMoved=false, planted=false;
+addEventListener('mousemove',e=>{
+  mouse.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
+  mouseMoved=true;
+  if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(_){}}
+});
+addEventListener('mousedown',e=>{if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();} if(e.button===2)planted=true;});
+addEventListener('mouseup',e=>{if(e.button===2)planted=false;});
+addEventListener('contextmenu',e=>e.preventDefault());
+
+// ---------- game state ----------
+let wave=0, kills=0, alive=0, spawning=false, dead=false;
+let shake=0, hitstop=0;
+const $=id=>document.getElementById(id);
+function updateHearts(){
+  $('hearts').innerHTML='';
+  for(let i=0;i<player.maxHp;i++){const d=document.createElement('div');d.className='heart'+(i<player.hp?'':' empty');$('hearts').appendChild(d);}
+}
+function showMsg(t,ms=1300){const m=$('msg');m.textContent=t;m.style.opacity=1;clearTimeout(m._t);m._t=setTimeout(()=>m.style.opacity=0,ms);}
+function nextWave(){
+  wave++; $('wave').textContent=wave; spawning=true;
+  showMsg('WAVE '+wave);
+  beep(330,.15,'triangle',.1,220);
+  const slimes=3+wave*2, brutes=Math.floor(wave/2);
+  let i=0;
+  const iv=setInterval(()=>{
+    if(dead){clearInterval(iv);return;}
+    if(i<slimes) spawnEnemy(false);
+    else if(i<slimes+brutes) spawnEnemy(true);
+    else {clearInterval(iv);spawning=false;return;}
+    alive++; i++;
+  },380);
+}
+function reset(){
+  enemies.forEach(e=>scene.remove(e.mesh)); enemies.length=0;
+  parts.forEach(p=>scene.remove(p.m)); parts.length=0;
+  player.pos.set(0,0,4); player.vel.set(0,0,0); player.hp=player.maxHp=5;
+  player.invuln=0; player.tipVel.set(0,0,0); player.stam=1; player.swingId=0;
+  player.tip.set(0,.75,1.6); player.tipPrev.copy(player.tip);
+  wave=0; kills=0; alive=0; dead=false;
+  $('kills').textContent=0; $('over').style.display='none';
+  updateHearts(); nextWave();
+}
+$('retry').onclick=reset;
+
+// ---------- combat ----------
+const TIP_H=.75, REACH=2.9, STRETCH=1.1;
+
+function hurtPlayer(from){
+  if(player.invuln>0||dead) return;
+  player.hp--; updateHearts();
+  player.invuln=1.0;
+  const kb=player.pos.clone().sub(from); kb.y=0; kb.normalize().multiplyScalar(11);
+  player.vel.add(kb);
+  shake=Math.max(shake,.5); hitstop=Math.max(hitstop,.07);
+  beep(110,.25,'sawtooth',.12,-40);
+  burst(player.pos.clone().setY(1.2),0xd43a3a,10,5);
+  if(player.hp<=0){
+    dead=true;
+    $('overstats').textContent='Wave '+wave+' · '+kills+' kills';
+    setTimeout(()=>$('over').style.display='flex',700);
+    beep(80,.6,'sawtooth',.15,-50);
+  }
+}
+
+// ---------- physics + loop ----------
+const clock=new THREE.Clock();
+function collideStatics(pos,r){
+  pos.x=Math.max(-ARENA,Math.min(ARENA,pos.x));
+  pos.z=Math.max(-ARENA,Math.min(ARENA,pos.z));
+  for(const p of pillars){
+    const dx=pos.x-p.x, dz=pos.z-p.z, rr=p.r+r, d2=dx*dx+dz*dz;
+    if(d2<rr*rr&&d2>1e-6){const d=Math.sqrt(d2);pos.x=p.x+dx/d*rr;pos.z=p.z+dz/d*rr;}
+  }
+}
+
+function step(dt){
+  // aim point from mouse
+  ray.setFromCamera(mouse,camera);
+  ray.ray.intersectPlane(groundPlane,aimPt);
+
+  // --- player movement: body chases the cursor with momentum ---
+  const toAim=aimPt.clone().sub(player.pos); toAim.y=0;
+  const aimDist=toAim.length();
+  const WALK_ZONE=3.4; // inside sword reach the body stands its ground — pure swordplay
+  if(!dead&&mouseMoved&&aimDist>WALK_ZONE&&!planted){
+    const dir=toAim.clone().normalize();
+    const spdNow=Math.hypot(player.vel.x,player.vel.z);
+    const urgency=Math.min((aimDist-WALK_ZONE)/4,1);
+    const accel=55*urgency*Math.max(0,1-spdNow/10.5);
+    player.vel.addScaledVector(dir,accel*dt);
+    // braking when velocity opposes desired direction
+    if(spdNow>.5){
+      const vdir=new THREE.Vector3(player.vel.x,0,player.vel.z).normalize();
+      const oppose=Math.max(0,-vdir.dot(dir));
+      player.vel.multiplyScalar(Math.exp(-oppose*9*dt));
+    }
+  }
+  const moving=aimDist>WALK_ZONE&&mouseMoved&&!planted;
+  player.vel.multiplyScalar(Math.exp(-(planted?11:(moving?2.8:8))*dt));
+  let spd=Math.hypot(player.vel.x,player.vel.z);
+  if(spd>13){player.vel.multiplyScalar(13/spd);spd=13;} // hard speed cap (lunges/recoil can't stack to infinity)
+  player.vel.y=0;
+  player.pos.addScaledVector(player.vel,dt);
+  collideStatics(player.pos,player.r);
+
+  // facing: spring-damper toward the sword tip (angular momentum)
+  let faceTarget=player.face;
+  const toTipF=player.tip.clone().sub(player.pos);
+  if(Math.hypot(toTipF.x,toTipF.z)>.4) faceTarget=Math.atan2(toTipF.x,toTipF.z);
+  let fd=faceTarget-player.face;
+  while(fd>Math.PI)fd-=2*Math.PI; while(fd<-Math.PI)fd+=2*Math.PI;
+  player.faceVel += fd*44*dt;
+  player.faceVel *= Math.exp(-8*dt);
+  player.face += player.faceVel*dt;
+
+  // --- SWORD TIP IS THE CURSOR ---
+  // the tip is a point mass on a stiff spring toward the cursor: it goes where you point,
+  // but carries momentum — fast mouse moves whip it through targets with overshoot
+  const tipTarget=mouseMoved?aimPt.clone():player.pos.clone().add(new THREE.Vector3(Math.sin(player.face),0,Math.cos(player.face)).multiplyScalar(2));
+  tipTarget.y=TIP_H; player.tip.y=TIP_H;
+  // --- stamina: sustained fast blade work tires the arms slightly ---
+  const tsNow=player.tipVel.length();
+  player.stam=THREE.MathUtils.clamp(player.stam + (tsNow>8 ? -(tsNow-8)*.085*dt : (tsNow<4.5?.28:0)*dt), 0, 1);
+
+  // HEAVY spring: big mass, low damping — the blade commits to a swing
+  const springF=tipTarget.sub(player.tip).multiplyScalar(42);
+  // commitment: once swinging, pulling the other way barely bites until momentum bleeds off
+  const tipSpdNow=player.tipVel.length();
+  if(tipSpdNow>7&&springF.dot(player.tipVel)<0)springF.multiplyScalar(.35);
+  player.tipVel.addScaledVector(springF,dt);
+  player.tipVel.multiplyScalar(Math.exp(-2.4*dt));
+  // reach constraint: beyond arm's reach the sword DRAGS THE BODY (and stretches slightly)
+  const grip2=player.pos.clone(); grip2.y=TIP_H;
+  let radial=player.tip.clone().sub(grip2); radial.y=0;
+  let rd=radial.length(); if(rd<1e-4){radial.set(0,0,1);rd=1;}
+  const rdir=radial.clone().divideScalar(rd);
+  if(rd>REACH){
+    const over=rd-REACH;
+    if(!planted)player.vel.addScaledVector(rdir,over*340*dt); // sword pulls the knight along
+    player.tipVel.addScaledVector(rdir,-over*(planted?260:160)*dt); // elastic pull-back on the tip
+    if(rd>REACH+STRETCH){                                      // hard limit: kill outward radial vel
+      player.tip.copy(grip2).addScaledVector(rdir,REACH+STRETCH);
+      const outward=rdir.dot(player.tipVel);
+      if(outward>0)player.tipVel.addScaledVector(rdir,-outward);
+    }
+  } else if(rd<.9){                                            // blade can't pass through the body
+    player.tip.copy(grip2).addScaledVector(rdir,.9);
+    const inward=rdir.dot(player.tipVel);
+    if(inward<0)player.tipVel.addScaledVector(rdir,-inward);
+  }
+  const tvMax=44, tvLen=player.tipVel.length();
+  if(tvLen>tvMax)player.tipVel.multiplyScalar(tvMax/tvLen);
+  player.tipVel.y=0;
+  player.tip.addScaledVector(player.tipVel,dt);
+  player.tip.y=TIP_H;
+  const tip=player.tip.clone();
+  const tipSpeed=player.tipVel.length();
+
+  // pose: two-handed grip; at rest the sword is held up in a ready stance, during swings it flattens into the cut
+  const toTip=tip.clone().sub(player.pos); toTip.y=0;
+  const tipDist=Math.max(toTip.length(),.01);
+  const tipAng=Math.atan2(toTip.x,toTip.z);
+  const rel=(()=>{let r=tipAng-player.face;while(r>Math.PI)r-=2*Math.PI;while(r<-Math.PI)r+=2*Math.PI;return r;})();
+  const k=THREE.MathUtils.clamp(tipSpeed/14,0,1);            // 0 = at rest, 1 = full swing
+  P.pivot.rotation.set(-.5-1.0*k, rel, 0);
+  P.pivotL.rotation.set(-.35-.9*k, rel*.85, .3-.2*k);
+  P.g.position.copy(player.pos); P.g.rotation.y=player.face;
+  // hilt pulled in near the hip at rest, arms extend into the swing
+  const hand=player.pos.clone().add(new THREE.Vector3(Math.sin(tipAng),0,Math.cos(tipAng)).multiplyScalar(.5+.4*k)); hand.y=1.3-.15*k;
+  worldSword.position.copy(hand);
+  const lift=(1-k)*1.15;                                      // idle: tip raised at guard
+  worldSword.lookAt(tip.x,TIP_H+lift,tip.z);
+  const handDist=Math.hypot(tip.x-hand.x,tip.z-hand.z);
+  worldSword.scale.z=THREE.MathUtils.clamp(Math.hypot(handDist,lift+ (hand.y-TIP_H))/SWORD_LEN,.55,1.5);
+  // blade rolls with its own speed (edge leads the cut)
+  worldSword.rotation.z=THREE.MathUtils.clamp(player.tipVel.length()*.02,0,.6)*(Math.sin(tipAng)>0?1:-1);
+  // whoosh
+  if(tipSpeed>16&&!step._wh){step._wh=true;beep(140,.1,'sawtooth',.04,-50);}
+  if(tipSpeed<9)step._wh=false;
+  // trail
+  if(tipSpeed>6){
+    trailPts.push({tip:tip.clone(),base:player.pos.clone().setY(1.5)});
+    if(trailPts.length>TRAIL_N)trailPts.shift();
+  } else trailPts.length=0;
+  trail.visible=trailPts.length>2;
+  if(trail.visible){
+    for(let i=0;i<TRAIL_N;i++){
+      const p=trailPts[Math.min(i,trailPts.length-1)];
+      trailPos.set([p.tip.x,p.tip.y,p.tip.z,p.base.x,p.base.y,p.base.z],i*6);
+    }
+    trailGeo.attributes.position.needsUpdate=true;
+    trailMat.opacity=Math.min(.55,(tipSpeed-6)*.04);
+  }
+  // hits: swept blade segment vs enemies; damage scales with blade speed
+  if(!dead&&tipSpeed>6.5){
+    for(const e of enemies){
+      if(e.hitCD>0) continue;
+      const c=e.pos.clone().setY(Math.min(1.4,.6+e.y));
+      const seg=tip.clone().sub(player.tipPrev);
+      const tt=THREE.MathUtils.clamp(c.clone().sub(player.tipPrev).dot(seg)/Math.max(seg.lengthSq(),1e-6),0,1);
+      const closest=player.tipPrev.clone().addScaledVector(seg,tt);
+      const gripP=player.pos.clone().setY(1.4);
+      const seg2=tip.clone().sub(gripP);
+      const t2=THREE.MathUtils.clamp(c.clone().sub(gripP).dot(seg2)/Math.max(seg2.lengthSq(),1e-6),0,1);
+      const closest2=gripP.clone().addScaledVector(seg2,t2);
+      const hitR=e.r+.55;
+      if(closest.distanceToSquared(c)<hitR*hitR||closest2.distanceToSquared(c)<hitR*hitR){
+        e.hitCD=.28;
+        const dmg=tipSpeed>14?2:1; // clean fast cuts one-shot slimes
+        e.hp-=dmg; e.flash=.15; e.stun=.5;
+        // momentum transfer: knockback along blade velocity + body velocity (kept modest so follow-ups land)
+        const kb=player.tipVel.clone(); kb.y=0;
+        if(kb.lengthSq()<1)kb.copy(c).sub(player.pos).setY(0);
+        kb.normalize();
+        const power=Math.min(tipSpeed*.5+spd*.6,15)/(e.big?2.2:1);
+        e.vel.addScaledVector(kb,power);
+        e.vy=Math.max(e.vy,(e.big?1.5:3.5)+tipSpeed*.05);
+        // equal-and-opposite: recoil on body + blade loses momentum in the cut
+        player.vel.addScaledVector(kb,-(e.big?1.6:.7));
+        player.tipVel.multiplyScalar(e.big?.35:.6);
+        shake=Math.max(shake,.28); hitstop=Math.max(hitstop,e.big?.06:.045);
+        beep(e.big?150:220,.08,'square',.09,-80);
+        burst(c,e.big?0xc06a6a:0x8fe07a,8,6);
+      }
+    }
+  }
+  player.tipPrev.copy(tip);
+  $('stamfill').style.width=(player.stam*100)+'%';
+  $('stambar').classList.toggle('low',player.stam<.28);
+  player.invuln=Math.max(0,player.invuln-dt);
+
+  // enemies
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
+    e.stun=Math.max(0,e.stun-dt); e.flash=Math.max(0,e.flash-dt); e.touchCD=Math.max(0,e.touchCD-dt); e.hitCD=Math.max(0,e.hitCD-dt);
+    // gravity / hop
+    e.vy-=22*dt; e.y+=e.vy*dt;
+    if(e.y<=0){e.y=0;e.vy=0;}
+    const toP=player.pos.clone().sub(e.pos); toP.y=0;
+    const dist=toP.length(); toP.normalize();
+    if(!dead&&e.stun<=0){
+      if(e.big){ // brute walks steadily
+        e.vel.addScaledVector(toP,26*dt);
+      } else { // slime hops
+        e.hopT-=dt;
+        if(e.y===0&&e.hopT<=0){
+          e.vy=5.2+Math.random();
+          e.vel.addScaledVector(toP,5.5);
+          e.hopT=.55+Math.random()*.45;
+        }
+      }
+    }
+    const ed=Math.exp(-(e.y>0?1.2:6)*dt);
+    e.vel.multiplyScalar(ed);
+    const es=Math.hypot(e.vel.x,e.vel.z), emax=e.stun>0?14:(e.big?3.4:8);
+    if(es>emax)e.vel.multiplyScalar(emax/es);
+    e.pos.addScaledVector(e.vel,dt);
+    collideStatics(e.pos,e.r);
+    // separation
+    for(const o of enemies){
+      if(o===e)continue;
+      const dx=e.pos.x-o.pos.x,dz=e.pos.z-o.pos.z,rr=e.r+o.r,d2=dx*dx+dz*dz;
+      if(d2<rr*rr&&d2>1e-6){const d=Math.sqrt(d2),push=(rr-d)*.5;e.pos.x+=dx/d*push;e.pos.z+=dz/d*push;}
+    }
+    // touch damage
+    if(dist<e.r+player.r+.15&&e.touchCD<=0&&e.y<1){e.touchCD=.8;hurtPlayer(e.pos);}
+    // visuals
+    e.mesh.position.set(e.pos.x,e.y,e.pos.z);
+    const sq=e.y>0?1.12:(e.vy===0&&e.hopT<.15&&!e.big?.82:1);
+    e.mesh.scale.set(1/Math.sqrt(sq)* (1+ .0),sq,1/Math.sqrt(sq));
+    if(dist>.01)e.mesh.rotation.y=Math.atan2(toP.x,toP.z);
+    e.mat.color.copy(e.baseColor).lerp(new THREE.Color(0xffffff),e.flash>0?.85:0);
+    // death
+    if(e.hp<=0){
+      burst(e.pos.clone().setY(.7),e.big?0x8a3535:0x5fae4a,e.big?18:12,e.big?8:6);
+      scene.remove(e.mesh); enemies.splice(i,1);
+      kills++; alive--; $('kills').textContent=kills;
+      beep(90,.18,'square',.1,-30);
+      if(e.big&&player.hp<player.maxHp){player.hp++;updateHearts();burst(player.pos.clone().setY(1.5),0xd43a3a,6,3);}
+    }
+  }
+  if(!spawning&&alive<=0&&!dead) nextWave();
+
+  // particles
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.life-=dt;
+    p.vel.y-=18*dt; p.m.position.addScaledVector(p.vel,dt);
+    if(p.m.position.y<0){p.m.position.y=0;p.vel.y*=-.4;p.vel.x*=.7;p.vel.z*=.7;}
+    p.m.scale.setScalar(Math.max(p.life,.01)*1.6);
+    if(p.life<=0){scene.remove(p.m);parts.splice(i,1);}
+  }
+
+  // player visuals
+  const bob=spd>1?Math.sin(performance.now()*.014)*.06:0;
+  P.g.position.y=bob;
+  P.g.visible = !(player.invuln>0&&Math.floor(performance.now()/80)%2===0&&player.invuln>.25);
+  // lean into velocity + counter-lean against sword swings (weight)
+  const fwd=new THREE.Vector3(Math.sin(player.face),0,Math.cos(player.face));
+  const right=new THREE.Vector3(fwd.z,0,-fwd.x);
+  P.g.rotation.x = THREE.MathUtils.clamp(player.vel.dot(fwd)*.016,-.2,.2);
+  P.g.rotation.z = THREE.MathUtils.clamp(-player.vel.dot(right)*.014-player.faceVel*.03,-.25,.25);
+
+  // torch flicker
+  const now=performance.now()*.001;
+  for(const f of flames){
+    f.li.intensity=26+Math.sin(now*11+f.seed)*5+Math.sin(now*23+f.seed*2)*3;
+    f.fl.scale.setScalar(1+Math.sin(now*13+f.seed)*.2);
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  let dt=Math.min(clock.getDelta(),.05);
+  if(hitstop>0){hitstop-=dt;dt*=.08;}
+  step(dt);
+  // camera follow + shake
+  shake=Math.max(0,shake-dt*2.2);
+  const target=player.pos.clone().add(CAM_OFF);
+  camera.position.lerp(target,1-Math.exp(-6*dt));
+  const s=shake*shake*.5;
+  camera.position.x+=(Math.random()-.5)*s;
+  camera.position.y+=(Math.random()-.5)*s;
+  const look=player.pos.clone(); look.y=1;
+  camera.lookAt(look);
+  renderer.render(scene,camera);
+}
+window.__game={player,enemies,camera,step,mouse,setMoved:v=>mouseMoved=v,stats:()=>({kills,wave,hp:player.hp}),render:()=>renderer.render(scene,camera)}; // debug/testing hook
+updateHearts(); nextWave(); animate();
+</script>
+</body>
+</html>
