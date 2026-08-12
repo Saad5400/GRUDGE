@@ -13,13 +13,15 @@
  */
 import { Health } from '../components';
 import { COMBO } from '../content/combo';
-import type { SimContext } from './context';
+import { tickEvents, type SimContext } from './context';
 
 export function comboSystem(ctx: SimContext): void {
   const { state } = ctx;
   const p = ctx.playerEid;
 
-  const kills = ctx.events.ofType('enemy-died').length;
+  // This tick's events only — the bus is cleared per frame, not per step, so
+  // ofType() would re-count a previous tick's kills on a double-stepped frame.
+  const kills = tickEvents(ctx, 'enemy-died').length;
   for (let i = 0; i < kills; i++) {
     state.streak++;
     state.streakT = COMBO.window;
@@ -34,7 +36,7 @@ export function comboSystem(ctx: SimContext): void {
     }
   }
 
-  if (COMBO.resetOnHurt && ctx.events.ofType('player-hurt').length > 0) {
+  if (COMBO.resetOnHurt && tickEvents(ctx, 'player-hurt').length > 0) {
     if (state.streak > 0) {
       state.streak = 0;
       ctx.events.emit({ type: 'streak-changed', streak: 0, best: state.bestStreak });

@@ -125,6 +125,7 @@ export function createGame(seed: number): Game {
     spawnIndex: 0,
     spawnTimer: 0,
     tokenTimer: 0,
+    eventCursor: 0,
   };
 
   function resetRun(newSeed?: number): void {
@@ -163,6 +164,9 @@ export function createGame(seed: number): Game {
     },
 
     step(): void {
+      // Everything before this index was emitted by an earlier tick this frame.
+      ctx.eventCursor = events.events.length;
+
       if (intents.restart) {
         intents.restart = false;
         if (state.dead) resetRun();

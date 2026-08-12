@@ -147,4 +147,23 @@ describe('kill streak', () => {
     expect(Health.hp[p]).toBe(PLAYER.maxHp);
     expect(log.filter((e) => e.type === 'player-healed')).toEqual([]);
   });
+
+  it('a kill is counted once even when several steps run before the bus clears', () => {
+    // The real main loop clears the bus per FRAME; the accumulator can run
+    // several step() calls inside one frame. Regression: the streak must not
+    // re-count the previous tick's enemy-died events on the second step.
+    const game = createGame(78);
+    Health.invuln[game.playerEid] = 999;
+    const e = spawnEnemyAt(game, 9, 9, ENEMY_KIND.slime);
+    Health.hp[e] = 0;
+
+    game.step(); // kill lands, enemy-died emitted
+    game.step(); // same frame, bus NOT cleared between steps
+    game.step();
+    expect(game.state.streak).toBe(1);
+    expect(
+      game.events.events.filter((ev) => ev.type === 'streak-changed'),
+    ).toEqual([{ type: 'streak-changed', streak: 1, best: 1 }]);
+    game.events.clear();
+  });
 });

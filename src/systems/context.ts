@@ -6,7 +6,7 @@
 import { defineQuery, type IWorld } from 'bitecs';
 import { Collider, Enemy, Health, Transform, Velocity, type EnemyKind } from '../components';
 import { ENEMY_STATS, type EnemyStats } from '../content/enemies';
-import type { EventBus } from '../core/events';
+import type { EventBus, GameEvent, GameEventType } from '../core/events';
 import type { GameState, Intents } from '../core/types';
 import type { Rng } from '../core/rng';
 
@@ -37,6 +37,28 @@ export interface SimContext {
 
   /** Countdown to the next attack-token reassignment (see systems/attackTokens). */
   tokenTimer: number;
+
+  /**
+   * events.events.length at the top of the current step. The bus is cleared
+   * once per rendered frame, but several sim steps can run inside one frame —
+   * sim-side readers must only see events emitted this tick (see tickEvents),
+   * or a double-stepped frame re-counts the previous tick's events.
+   */
+  eventCursor: number;
+}
+
+/** Events of one type emitted THIS TICK (after ctx.eventCursor). Sim-side readers use this, never events.ofType. */
+export function tickEvents<T extends GameEventType>(
+  ctx: SimContext,
+  type: T,
+): Extract<GameEvent, { type: T }>[] {
+  const evs = ctx.events.events;
+  const out: Extract<GameEvent, { type: T }>[] = [];
+  for (let i = ctx.eventCursor; i < evs.length; i++) {
+    const e = evs[i];
+    if (e.type === type) out.push(e as Extract<GameEvent, { type: T }>);
+  }
+  return out;
 }
 
 export const enemyQuery = defineQuery([Enemy, Transform, Velocity, Collider, Health]);
