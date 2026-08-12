@@ -53,6 +53,8 @@ export function telegraphSystem(ctx: SimContext): void {
       Enemy.lungeZ[e] = dz / dist;
       Enemy.attackState[e] = ATTACK_STATE.windup;
       Enemy.attackT[e] = TELEGRAPH.windupTime;
+      Velocity.x[e] = 0;
+      Velocity.z[e] = 0;
       ctx.events.emit({
         type: 'enemy-telegraph',
         eid: e,
