@@ -39,6 +39,12 @@ export interface GameState {
   shake: number;
   /** Hit-stop seconds remaining. Sim decrements; while >0 sim substeps run slowed. */
   hitstop: number;
+  /** Current kill streak (kills within COMBO.window of each other; hurt resets it). */
+  streak: number;
+  /** Seconds left before the streak expires. */
+  streakT: number;
+  /** Best streak this run. */
+  bestStreak: number;
   /** Total sim time in seconds (sum of fixed steps). */
   time: number;
 }

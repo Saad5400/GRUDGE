@@ -34,6 +34,9 @@ export interface SimContext {
   spawnTotal: number;
   spawnIndex: number;
   spawnTimer: number;
+
+  /** Countdown to the next attack-token reassignment (see systems/attackTokens). */
+  tokenTimer: number;
 }
 
 export const enemyQuery = defineQuery([Enemy, Transform, Velocity, Collider, Health]);

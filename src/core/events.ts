@@ -24,6 +24,14 @@ export type GameEvent =
   | { type: 'wave-started'; wave: number }
   /** Blade passed the whoosh speed threshold this tick. */
   | { type: 'whoosh'; tipSpeed: number }
+  /** An enemy began a telegraphed attack windup (audio/visual cue). */
+  | { type: 'enemy-telegraph'; eid: number; x: number; z: number; big: boolean }
+  /** Windup finished; the enemy committed to its lunge. */
+  | { type: 'enemy-lunge'; eid: number; x: number; z: number }
+  /** Planted blade met a winding-up enemy: attack cancelled, enemy staggered. */
+  | { type: 'parry'; eid: number; x: number; z: number; tipSpeed: number }
+  /** Kill streak went up or expired. */
+  | { type: 'streak-changed'; streak: number; best: number }
   | { type: 'game-reset' };
 
 export type GameEventType = GameEvent['type'];

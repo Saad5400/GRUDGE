@@ -52,3 +52,25 @@ export const COMBAT = {
   hurtShake: 0.5,
   hurtHitstop: 0.07,
 } as const;
+
+/**
+ * Parry: while planted (right-click / second touch), meeting a winding-up
+ * enemy with the blade cancels its attack and staggers it. Deliberately looser
+ * than a hit — a parry is a read, not a twitch.
+ */
+export const PARRY = {
+  /** Blade must be at least this fast (well below minHitTipSpeed — a firm push parries). */
+  minTipSpeed: 3,
+  /** Stagger applied to the parried enemy (long riposte window). */
+  stun: 1.4,
+  /** Parried enemy is shoved back this hard. */
+  knockback: 9,
+  /** Attack cooldown forced onto the parried enemy. */
+  attackCD: 2.2,
+  /** Impact juice — a parry should feel like a bell rung. */
+  shake: 0.4,
+  hitstop: 0.09,
+  flashTime: 0.22,
+  /** Stamina refunded on a successful parry (0..1). */
+  staminaRefund: 0.35,
+} as const;

@@ -47,16 +47,17 @@ button-based light/heavy attack scheme:
       overlay wiring, CI pipeline (typecheck/lint/test/build + e2e). _Essentially
       done: `src/core/*`, `src/components/index.ts`, `src/content/arena.ts`,
       `.github/workflows/ci.yml`, `main.ts` composition root are in place._
-- [ ] **Phase 1 — Core prototype.** _In flight, via the demo port._ Camera,
-      cursor-sword combat (spring/reach/commitment), player controller, stamina
-      (drain above blade speed 8, regen below 4.5), dummy/slime/brute enemies,
-      hitbox/hurtbox via swept blade segment, wave spawner, game-feel pass
-      (hit-stop, screen shake, knockback, i-frames). Exit: killing one enemy is
-      satisfying.
-- [ ] **Phase 2 — Combat vertical slice.** Combo streak meter, charged
-      abilities (Execution, Ground Slam), grab & throw, environmental kills, group
-      AI attack tokens (limit simultaneous attackers). Parry vs. telegraphed
-      attacks introduced here. Exit: a 3-minute arena fight is fun.
+- [x] **Phase 1 — Core prototype.** Camera, cursor-sword combat
+      (spring/reach/commitment), player controller, stamina (drain above blade
+      speed 8, regen below 4.5), slime/brute enemies, hitbox/hurtbox via swept
+      blade segment, wave spawner, game-feel pass (hit-stop, screen shake,
+      knockback, i-frames). _Shipped via the demo port; the "killing one enemy
+      is satisfying" gate is a human playtest call on the published build._
+- [ ] **Phase 2 — Combat vertical slice.** _In flight._ **2a (now):** group AI
+      attack tokens (max simultaneous attackers), telegraphed brute lunges,
+      parry vs. windups (planted stance), kill-streak combo meter with heal
+      milestones. **2b (next):** charged abilities (Execution, Ground Slam),
+      grab & throw, environmental kills. Exit: a 3-minute arena fight is fun.
 - [ ] **Phase 3 — Souls-like structure.** Archetypes (grunt/shield/berserker/
       archer), telegraph AI, death cost (XP drop on death, recoverable), checkpoints,
       healing charges, difficulty data pass.

@@ -56,6 +56,13 @@ export function spawnEnemyAt(
   Enemy.touchCD[eid] = 0;
   Enemy.hitCD[eid] = 0;
   Enemy.circleDir[eid] = ctx.rng.next() < 0.5 ? -1 : 1;
+  // bitECS recycles entity ids without zeroing stores — clear Phase 2 fields.
+  Enemy.attackState[eid] = 0;
+  Enemy.attackT[eid] = 0;
+  Enemy.attackCD[eid] = 0;
+  Enemy.lungeX[eid] = 0;
+  Enemy.lungeZ[eid] = 0;
+  Enemy.token[eid] = 0;
 
   ctx.events.emit({ type: 'enemy-spawned', eid, big: stats.big });
   return eid;

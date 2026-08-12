@@ -6,9 +6,12 @@
  * and the same per-tick `intents`, two games produce bit-identical state, which
  * is what makes replays, headless tests and (later) rival ghosts possible.
  *
- * Pipeline order is load-bearing — it mirrors the reference demo's step():
- *   hitstop → player movement → sword physics → sword damage → timers →
- *   enemy AI → collision → touch damage → enemy death → waves → shake decay
+ * Pipeline order is load-bearing — it mirrors the reference demo's step(),
+ * with the Phase 2 systems slotted where their reads/writes demand:
+ *   hitstop → player movement → sword physics → parry (before damage: a parry
+ *   consumes the blade contact) → sword damage → timers → attack tokens →
+ *   enemy AI → telegraph → collision → touch damage → enemy death → combo
+ *   (reads this tick's death events) → waves → shake decay
  */
 import { createWorld, removeEntity, addComponent, addEntity, type IWorld } from 'bitecs';
 import {
@@ -32,6 +35,10 @@ import { swordPhysicsSystem } from './systems/swordPhysics';
 import { swordDamageSystem } from './systems/swordDamage';
 import { timerSystem } from './systems/timers';
 import { enemyAISystem } from './systems/enemyAI';
+import { attackTokenSystem } from './systems/attackTokens';
+import { telegraphSystem } from './systems/telegraph';
+import { parrySystem } from './systems/parry';
+import { comboSystem } from './systems/combo';
 import { collisionSystem } from './systems/collision';
 import { touchDamageSystem } from './systems/touchDamage';
 import { enemyDeathSystem } from './systems/enemyDeath';
@@ -54,6 +61,9 @@ function createState(): GameState {
     dead: false,
     shake: 0,
     hitstop: 0,
+    streak: 0,
+    streakT: 0,
+    bestStreak: 0,
     time: 0,
   };
 }
@@ -114,6 +124,7 @@ export function createGame(seed: number): Game {
     spawnTotal: 0,
     spawnIndex: 0,
     spawnTimer: 0,
+    tokenTimer: 0,
   };
 
   function resetRun(newSeed?: number): void {
@@ -126,6 +137,7 @@ export function createGame(seed: number): Game {
     ctx.spawnTotal = 0;
     ctx.spawnIndex = 0;
     ctx.spawnTimer = 0;
+    ctx.tokenTimer = 0;
     state.wave = 0;
     state.kills = 0;
     state.alive = 0;
@@ -133,6 +145,9 @@ export function createGame(seed: number): Game {
     state.dead = false;
     state.shake = 0;
     state.hitstop = 0;
+    state.streak = 0;
+    state.streakT = 0;
+    state.bestStreak = 0;
     events.emit({ type: 'game-reset' });
     nextWave(ctx);
   }
@@ -156,12 +171,16 @@ export function createGame(seed: number): Game {
       hitstopSystem(ctx);
       playerMovementSystem(ctx);
       swordPhysicsSystem(ctx);
+      parrySystem(ctx);
       swordDamageSystem(ctx);
       timerSystem(ctx);
+      attackTokenSystem(ctx);
       enemyAISystem(ctx);
+      telegraphSystem(ctx);
       collisionSystem(ctx);
       touchDamageSystem(ctx);
       enemyDeathSystem(ctx);
+      comboSystem(ctx);
       waveSystem(ctx);
       shakeDecaySystem(ctx);
 

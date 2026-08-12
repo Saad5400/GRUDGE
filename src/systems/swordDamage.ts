@@ -8,31 +8,8 @@
 import { Collider, Enemy, Health, SwordTip, Transform, Velocity } from '../components';
 import { COMBAT } from '../content/combat';
 import { SWORD } from '../content/sword';
-import { clamp } from '../core/math';
+import { segPointDist2 } from '../core/math';
 import { enemiesNewestFirst, enemyStats, type SimContext } from './context';
-
-/** Squared distance from point c to segment a→b, in 3D. */
-function segPointDist2(
-  ax: number,
-  ay: number,
-  az: number,
-  bx: number,
-  by: number,
-  bz: number,
-  cx: number,
-  cy: number,
-  cz: number,
-): number {
-  const sx = bx - ax;
-  const sy = by - ay;
-  const sz = bz - az;
-  const ls = sx * sx + sy * sy + sz * sz;
-  const t = clamp(((cx - ax) * sx + (cy - ay) * sy + (cz - az) * sz) / Math.max(ls, 1e-6), 0, 1);
-  const dx = ax + sx * t - cx;
-  const dy = ay + sy * t - cy;
-  const dz = az + sz * t - cz;
-  return dx * dx + dy * dy + dz * dz;
-}
 
 export function swordDamageSystem(ctx: SimContext): void {
   const { state } = ctx;

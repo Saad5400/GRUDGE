@@ -61,6 +61,18 @@ export const ENEMY_KIND = {
 } as const;
 export type EnemyKind = (typeof ENEMY_KIND)[keyof typeof ENEMY_KIND];
 
+/**
+ * Telegraphed-attack state machine (brutes). idle → windup (readable, parryable)
+ * → strike (lunge) → recover → idle. Render reads this for windup visuals.
+ */
+export const ATTACK_STATE = {
+  idle: 0,
+  windup: 1,
+  strike: 2,
+  recover: 3,
+} as const;
+export type AttackState = (typeof ATTACK_STATE)[keyof typeof ATTACK_STATE];
+
 export const Enemy = defineComponent({
   kind: Types.ui8,
   /** Seconds until next hop (slimes). */
@@ -75,4 +87,15 @@ export const Enemy = defineComponent({
   hitCD: Types.f32,
   /** -1 or 1; strafing preference. */
   circleDir: Types.i8,
+  /** ATTACK_STATE value (telegraph state machine, brutes). */
+  attackState: Types.ui8,
+  /** Seconds remaining in the current attack state. */
+  attackT: Types.f32,
+  /** Cooldown before this enemy may start another telegraphed attack. */
+  attackCD: Types.f32,
+  /** Lunge direction, locked at windup start (unit vector). */
+  lungeX: Types.f32,
+  lungeZ: Types.f32,
+  /** 1 while holding an attack token (allowed to press the player). */
+  token: Types.ui8,
 });

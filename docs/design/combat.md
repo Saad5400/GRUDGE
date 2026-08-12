@@ -109,10 +109,53 @@ On hit:
   (`dist < enemyRadius + playerRadius + 0.15`), gated by a per-enemy
   `touchCD` (0.8s) — not a swing, just proximity.
 
-## Future (Phase 2 hooks)
+## Phase 2 — group AI, telegraphs, parry, streak
 
-- **Parry** vs. telegraphed attacks — timing-based, not part of this port.
-  Needs enemy telegraph state first (Phase 3 also depends on this).
-- **Executions** — likely a charged finisher on staggered/low-hp enemies.
-- **Grab & throw** — physics object interaction, revisit once ragdoll/impulse
-  needs justify pulling in Rapier (see `docs/decisions/0002-*.md`).
+Numbers live in `src/content/ai.ts`, `src/content/combat.ts` (`PARRY`) and
+`src/content/combo.ts`; the values below are the intent, the content files win.
+
+### Attack tokens (group AI)
+
+At most `AI_TOKENS.maxAttackers` (2) enemies may press the player at once.
+Tokens are re-dealt every 0.4s to the nearest living enemies (mid-attack
+holders keep theirs until they finish); everyone else orbits at a standoff
+ring (~4.5) using their `circleDir` preference. The pack reads as coordinated
+— it surrounds and rotates pressure — without ever becoming an unreadable
+dogpile. This is the fairness backbone of "hard but fair": you fight two
+enemies at a time, the rest are a threat you can see coming.
+
+### Telegraphed attacks (brutes)
+
+Brutes attack through a readable state machine on `Enemy.attackState`:
+**windup** (0.55s — stands still, locks a lunge direction toward where you
+*were*, render pulses red) → **strike** (0.28s — one big impulse along the
+locked direction; damage comes from the existing touch-damage overlap, not a
+scripted hitbox) → **recover** (0.5s — vulnerable) → cooldown (1.6s). The
+locked direction is the dodge window: a windup is a promise, and sidestepping
+it is always possible. Stun at any point cancels the attack. Slimes keep their
+hop as their only "attack" — they never telegraph.
+
+### Parry — a read, not a twitch
+
+While **planted** (right-click / second finger), meeting a **winding-up**
+enemy with a moving blade (tip speed ≥ 3 — far below the 6.5 damage gate; a
+firm push parries) cancels its attack, staggers it for 1.4s (a long riposte
+window), knocks it back, and refunds 0.35 stamina. No damage is dealt by the
+parry itself — the reward is the stagger. Parrying deliberately requires the
+planted stance: standing your ground is the defensive read, footwork is the
+evasive one.
+
+### Kill streak (combo)
+
+Kills within 4s of each other build a streak; the window refreshes per kill.
+Getting hit — or letting the window lapse — resets it to zero. Every 5th
+streak kill heals 1 hp (capped). The meter is deliberately fragile: it
+rewards aggressive, clean play, which is the whole cursor-sword thesis.
+
+## Future (Phase 2b+ hooks)
+
+- **Executions** — likely a charged finisher on staggered/low-hp enemies
+  (parry already produces the stagger state this needs).
+- **Grab & throw / environmental kills** — physics object interaction,
+  revisit once ragdoll/impulse needs justify pulling in Rapier (see
+  `docs/decisions/0002-*.md`).
