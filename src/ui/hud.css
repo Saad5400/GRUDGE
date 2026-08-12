@@ -1,0 +1,138 @@
+/* HUD overlay — ported 1:1 from reference/dungeon-brawler.html, scoped under #hud. */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: #e8e2d0;
+  font-family: 'Trebuchet MS', Verdana, sans-serif;
+  user-select: none;
+}
+
+#hud #hearts {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  display: flex;
+  gap: 6px;
+}
+
+#hud .heart {
+  width: 22px;
+  height: 22px;
+  background: #d43a3a;
+  border: 2px solid #1a0d0d;
+  transform: rotate(45deg);
+  border-radius: 4px 50% 50% 50%;
+  box-shadow: 0 0 8px rgba(212, 58, 58, 0.5);
+}
+
+#hud .heart.empty {
+  background: #3a2020;
+  box-shadow: none;
+}
+
+#hud #stambar {
+  position: absolute;
+  top: 50px;
+  left: 20px;
+  width: 130px;
+  height: 7px;
+  background: #241f2e;
+  border: 1px solid #000;
+}
+
+#hud #stamfill {
+  height: 100%;
+  width: 100%;
+  background: #e8d48a;
+  transition: background 0.2s;
+}
+
+#hud #stambar.low #stamfill {
+  background: #d43a3a;
+}
+
+#hud #stats {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  text-align: right;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px #000;
+}
+
+#hud #stats b {
+  font-size: 22px;
+  color: #f5c452;
+}
+
+#hud #msg {
+  position: absolute;
+  top: 34%;
+  width: 100%;
+  text-align: center;
+  font-size: 52px;
+  font-weight: bold;
+  letter-spacing: 6px;
+  color: #f5c452;
+  text-shadow:
+    0 4px 18px #000,
+    0 0 40px rgba(245, 196, 82, 0.35);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+#hud #over {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 4, 10, 0.72);
+  pointer-events: auto;
+}
+
+#hud #over h1 {
+  font-size: 56px;
+  letter-spacing: 8px;
+  color: #d43a3a;
+  text-shadow: 0 4px 20px #000;
+  margin: 0 0 10px;
+}
+
+#hud #over p {
+  font-size: 18px;
+  color: #c9c2b0;
+  margin: 0 0 26px;
+}
+
+#hud #over button {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 18px;
+  letter-spacing: 2px;
+  padding: 12px 34px;
+  background: #f5c452;
+  color: #241a06;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #8a6a1e;
+}
+
+#hud #over button:hover {
+  background: #ffd76e;
+}
+
+#hud #help {
+  position: absolute;
+  bottom: 14px;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: #8f889c;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px #000;
+}

@@ -19,7 +19,11 @@ export default tseslint.config(
         'error',
         {
           paths: [
-            { name: 'three', message: 'Sim code must not import Three.js. Rendering is a read-only view of ECS state.' },
+            {
+              name: 'three',
+              message:
+                'Sim code must not import Three.js. Rendering is a read-only view of ECS state.',
+            },
             { name: 'howler', message: 'Sim code must not import audio. Emit events instead.' },
           ],
           patterns: ['three/*'],

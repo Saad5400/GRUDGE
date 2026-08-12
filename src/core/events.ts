@@ -7,7 +7,15 @@
 
 export type GameEvent =
   /** Blade connected with an enemy. killed=true when the hit was lethal. */
-  | { type: 'sword-hit'; x: number; y: number; z: number; big: boolean; killed: boolean; tipSpeed: number }
+  | {
+      type: 'sword-hit';
+      x: number;
+      y: number;
+      z: number;
+      big: boolean;
+      killed: boolean;
+      tipSpeed: number;
+    }
   | { type: 'enemy-died'; x: number; z: number; big: boolean }
   | { type: 'enemy-spawned'; eid: number; big: boolean }
   | { type: 'player-hurt'; x: number; z: number; hp: number }
