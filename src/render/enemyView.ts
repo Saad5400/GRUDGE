@@ -7,7 +7,12 @@
 import * as THREE from 'three';
 import { defineQuery, enterQuery, exitQuery } from 'bitecs';
 import type { IWorld } from 'bitecs';
-import { Transform, Velocity, Enemy, ENEMY_KIND } from '../components';
+import { Transform, Velocity, Enemy, ENEMY_KIND, ATTACK_STATE } from '../components';
+import { TELEGRAPH } from '../content/ai';
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
 
 export interface EnemyView {
   update(world: IWorld, playerX: number, playerZ: number): void;
@@ -59,6 +64,7 @@ export function createEnemyView(scene: THREE.Scene): EnemyView {
 
   const records = new Map<number, EnemyRecord>();
   const white = new THREE.Color(0xffffff);
+  const telegraphRed = new THREE.Color(0xff2b12);
   const scratchColor = new THREE.Color();
 
   function disposeRecord(rec: EnemyRecord): void {
@@ -127,14 +133,44 @@ export function createEnemyView(scene: THREE.Scene): EnemyView {
         const airborne = y > 0;
         const landing = !airborne && vy === 0 && hopT < 0.15 && !rec.big;
         const sq = airborne ? 1.12 : landing ? 0.82 : 1;
-        rec.group.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+
+        // Telegraph coil/stretch: idle/recover leave scale untouched. Driven off
+        // Enemy.attackT (sim time), never wall-clock, so it stays correct under hitstop.
+        const attackState = Enemy.attackState[eid];
+        const attackT = Enemy.attackT[eid];
+        let telegraphX = 1;
+        let telegraphY = 1;
+        let telegraphZ = 1;
+        let tintAmt = 0;
+        if (attackState === ATTACK_STATE.windup) {
+          const progress = clamp01(1 - attackT / TELEGRAPH.windupTime);
+          // Fast pulse riding on top of the linear ramp — reads as a tensing heartbeat.
+          const pulse = 0.5 + 0.5 * Math.sin(attackT * 26);
+          const coil = progress * (0.7 + 0.3 * pulse);
+          telegraphY = 1 - coil * 0.22;
+          telegraphX = 1 + coil * 0.12;
+          telegraphZ = 1 + coil * 0.12;
+          tintAmt = clamp01(progress * (0.55 + 0.35 * pulse));
+        } else if (attackState === ATTACK_STATE.strike) {
+          const progress = clamp01(1 - attackT / TELEGRAPH.strikeTime);
+          const stretch = 1 - progress; // 1 at strike start, decays to 0
+          // Local +z faces the lunge target (group is rotated to face it below).
+          telegraphZ = 1 + stretch * 0.35;
+          telegraphX = 1 - stretch * 0.15;
+          telegraphY = 1 - stretch * 0.05;
+        }
+
+        const invSqrtSq = 1 / Math.sqrt(sq);
+        rec.group.scale.set(telegraphX * invSqrtSq, telegraphY * sq, telegraphZ * invSqrtSq);
 
         const toPX = playerX - x;
         const toPZ = playerZ - z;
         if (Math.hypot(toPX, toPZ) > 0.01) rec.group.rotation.y = Math.atan2(toPX, toPZ);
 
         const flashAmt = Enemy.flash[eid] > 0 ? 0.85 : 0;
-        scratchColor.copy(rec.baseColor).lerp(white, flashAmt);
+        scratchColor.copy(rec.baseColor);
+        if (tintAmt > 0) scratchColor.lerp(telegraphRed, tintAmt);
+        if (flashAmt > 0) scratchColor.lerp(white, flashAmt);
         rec.bodyMat.color.copy(scratchColor);
       }
     },

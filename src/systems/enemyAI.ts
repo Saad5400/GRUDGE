@@ -3,10 +3,13 @@
  *
  * Slimes hop at the knight in bursts (all their speed arrives as a launch
  * impulse, so they are readable and dodgeable); brutes walk him down steadily.
- * Gravity and drag always run — a stunned or airborne enemy is still a physics
- * object being flung around by the blade.
+ * Only attack-token holders (systems/attackTokens) actually press him — the
+ * rest hold a standoff ring and circle, so a wave crowds the arena instead of
+ * collapsing onto one point. Gravity and drag always run — a stunned or
+ * airborne enemy is still a physics object being flung around by the blade.
  */
-import { Enemy, Transform, Velocity } from '../components';
+import { ATTACK_STATE, Enemy, Transform, Velocity } from '../components';
+import { AI_TOKENS, TELEGRAPH } from '../content/ai';
 import { ENEMY_PHYS } from '../content/enemies';
 import { expDecay } from '../core/math';
 import { enemiesNewestFirst, enemyStats, type SimContext } from './context';
@@ -33,21 +36,43 @@ export function enemyAISystem(ctx: SimContext): void {
       toX /= dist;
       toZ /= dist;
     }
+    const attack = Enemy.attackState[e];
+    // A committed attacker stops tracking: the lunge lands where it was aimed,
+    // so sidestepping a windup beats it (see systems/telegraph).
+    const committed = attack === ATTACK_STATE.windup || attack === ATTACK_STATE.strike;
     // Face the knight (render reads Transform.rot).
-    if (dist > 0.01) Transform.rot[e] = Math.atan2(toX, toZ);
+    if (dist > 0.01 && !committed) Transform.rot[e] = Math.atan2(toX, toZ);
 
-    if (!state.dead && Enemy.stun[e] <= 0) {
+    // Mid-attack enemies are steered by the telegraph state machine, not here.
+    if (!state.dead && Enemy.stun[e] <= 0 && attack === ATTACK_STATE.idle) {
+      // Token holders go for the throat; everyone else works the standoff ring:
+      // back off inside it, close from outside it, circle while on it.
+      let dirX = toX;
+      let dirZ = toZ;
+      let accel = stats.accel;
+      if (!Enemy.token[e]) {
+        if (dist < AI_TOKENS.standoffDist - AI_TOKENS.standoffSlack) {
+          dirX = -toX;
+          dirZ = -toZ;
+        } else if (dist <= AI_TOKENS.standoffDist + AI_TOKENS.standoffSlack) {
+          const cd = Enemy.circleDir[e];
+          dirX = -toZ * cd;
+          dirZ = toX * cd;
+          accel = AI_TOKENS.orbitAccel;
+        }
+      }
+
       if (stats.accel > 0) {
         // brute: steady pressure
-        Velocity.x[e] += toX * stats.accel * dt;
-        Velocity.z[e] += toZ * stats.accel * dt;
+        Velocity.x[e] += dirX * accel * dt;
+        Velocity.z[e] += dirZ * accel * dt;
       } else {
-        // slime: charge the hop timer, then launch
+        // slime: charge the hop timer, then launch (orbiters hop sideways)
         Enemy.hopT[e] -= dt;
         if (Transform.y[e] === 0 && Enemy.hopT[e] <= 0) {
           Velocity.y[e] = stats.hopVy + ctx.rng.next() * stats.hopVyRand;
-          Velocity.x[e] += toX * stats.hopImpulse;
-          Velocity.z[e] += toZ * stats.hopImpulse;
+          Velocity.x[e] += dirX * stats.hopImpulse;
+          Velocity.z[e] += dirZ * stats.hopImpulse;
           Enemy.hopT[e] = stats.hopMin + ctx.rng.next() * stats.hopRand;
         }
       }
@@ -59,7 +84,13 @@ export function enemyAISystem(ctx: SimContext): void {
     Velocity.z[e] *= drag;
 
     const es = Math.hypot(Velocity.x[e], Velocity.z[e]);
-    const emax = Enemy.stun[e] > 0 ? ENEMY_PHYS.stunSpeedCap : stats.maxSpeed;
+    // A lunge is allowed to outrun the walk cap; a stun still outranks both.
+    const emax =
+      Enemy.stun[e] > 0
+        ? ENEMY_PHYS.stunSpeedCap
+        : attack === ATTACK_STATE.strike
+          ? TELEGRAPH.strikeSpeedCap
+          : stats.maxSpeed;
     if (es > emax) {
       const s = emax / es;
       Velocity.x[e] *= s;

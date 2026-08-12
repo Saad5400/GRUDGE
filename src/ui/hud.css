@@ -68,6 +68,76 @@
   color: #f5c452;
 }
 
+#hud #streak {
+  position: absolute;
+  top: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+#hud #streaknum {
+  font-size: 40px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #f5c452;
+  text-shadow:
+    0 3px 10px #000,
+    0 0 24px rgba(245, 196, 82, 0.4);
+  transition:
+    color 0.25s,
+    text-shadow 0.25s;
+}
+
+#hud #streakbar {
+  width: 90px;
+  height: 6px;
+  background: #241f2e;
+  border: 1px solid #000;
+}
+
+#hud #streakfill {
+  height: 100%;
+  width: 100%;
+  background: #f5c452;
+  transition: width 0.1s linear;
+}
+
+#hud #streak.pop #streaknum {
+  animation: streakPop 0.22s ease-out;
+}
+
+#hud #streak.break #streaknum {
+  animation: streakBreak 0.38s ease-out;
+}
+
+@keyframes streakPop {
+  0% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes streakBreak {
+  0% {
+    color: #ff5a3a;
+    text-shadow:
+      0 3px 10px #000,
+      0 0 30px rgba(255, 60, 30, 0.9);
+  }
+  100% {
+    color: #f5c452;
+    text-shadow:
+      0 3px 10px #000,
+      0 0 24px rgba(245, 196, 82, 0.4);
+  }
+}
+
 #hud #msg {
   position: absolute;
   top: 34%;

@@ -79,6 +79,11 @@ export function createView(game: Game, container: HTMLElement): GameView {
       const eid = game.playerEid;
       particles.spawnBurst(Transform.x[eid], 1.5, Transform.z[eid], 0xd43a3a, 6, 3);
     }
+    for (const e of game.events.ofType('parry')) {
+      // Brighter/whiter and punchier than a normal sword-hit spark — reads as "clang".
+      const kick = Math.min(1, e.tipSpeed / 20);
+      particles.spawnBurst(e.x, 1.1, e.z, 0xffffff, 16 + Math.round(kick * 8), 10 + kick * 4);
+    }
   }
 
   function render(_alpha: number, frameDt: number): void {
