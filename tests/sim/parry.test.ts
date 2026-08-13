@@ -113,6 +113,9 @@ describe('parry', () => {
     expect(Enemy.attackCD[e]).toBeLessThanOrEqual(PARRY.attackCD);
     expect(Enemy.stun[e]).toBeGreaterThan(PARRY.stun - 0.05);
     expect(Enemy.stun[e]).toBeLessThanOrEqual(PARRY.stun);
+    // …and the stagger is the execution window the riposte exists for
+    expect(Enemy.stagger[e]).toBeGreaterThan(PARRY.stun - 0.05);
+    expect(Enemy.stagger[e]).toBeLessThanOrEqual(PARRY.stun);
     expect(Enemy.flash[e]).toBeGreaterThan(PARRY.flashTime - 0.05);
 
     // …and it costs the enemy no health at all: the parry ate the contact

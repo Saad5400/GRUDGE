@@ -24,6 +24,7 @@ export function createHud(game: Game, root: HTMLElement): Hud {
   root.innerHTML = `
     <div id="hearts"></div>
     <div id="stambar"><div id="stamfill"></div></div>
+    <div id="chargebar"><div id="chargefill"></div></div>
     <div id="stats">WAVE <b id="wave">1</b><br>KILLS <span id="kills">0</span></div>
     <div id="streak"><div id="streaknum">×2</div><div id="streakbar"><div id="streakfill"></div></div></div>
     <div id="msg"></div>
@@ -34,6 +35,8 @@ export function createHud(game: Game, root: HTMLElement): Hud {
   const heartsEl = root.querySelector<HTMLDivElement>('#hearts')!;
   const stamBarEl = root.querySelector<HTMLDivElement>('#stambar')!;
   const stamFillEl = root.querySelector<HTMLDivElement>('#stamfill')!;
+  const chargeBarEl = root.querySelector<HTMLDivElement>('#chargebar')!;
+  const chargeFillEl = root.querySelector<HTMLDivElement>('#chargefill')!;
   const waveEl = root.querySelector<HTMLElement>('#wave')!;
   const killsEl = root.querySelector<HTMLElement>('#kills')!;
   const streakEl = root.querySelector<HTMLDivElement>('#streak')!;
@@ -56,6 +59,8 @@ export function createHud(game: Game, root: HTMLElement): Hud {
   let lastStreak = 0;
   let streakPopUntil: number | null = null;
   let streakBreakUntil: number | null = null;
+
+  let chargeFlashUntil: number | null = null;
 
   function rebuildHearts(maxHp: number, hp: number): void {
     heartsEl.innerHTML = '';
@@ -91,6 +96,24 @@ export function createHud(game: Game, root: HTMLElement): Hud {
       const stam = Player.stamina[eid];
       stamFillEl.style.width = `${stam * 100}%`;
       stamBarEl.classList.toggle('low', stam < 0.28);
+
+      // Ground-slam charge meter: hidden at 0, fills as charge builds, distinct
+      // pulsing "ready" look at full charge, brief flash the tick it hits full.
+      const charge = Player.charge[eid];
+      chargeBarEl.style.display = charge > 0 ? 'block' : 'none';
+      chargeFillEl.style.width = `${Math.min(charge, 1) * 100}%`;
+      chargeBarEl.classList.toggle('ready', charge >= 1);
+
+      if (game.events.ofType('slam-charged').length > 0) {
+        chargeBarEl.classList.remove('flash');
+        void chargeBarEl.offsetWidth; // restart the flash animation
+        chargeBarEl.classList.add('flash');
+        chargeFlashUntil = performance.now() + 260;
+      }
+      if (chargeFlashUntil !== null && performance.now() >= chargeFlashUntil) {
+        chargeBarEl.classList.remove('flash');
+        chargeFlashUntil = null;
+      }
 
       if (game.state.wave !== lastWave) {
         waveEl.textContent = String(game.state.wave);
@@ -153,6 +176,9 @@ export function createHud(game: Game, root: HTMLElement): Hud {
         streakBreakUntil = null;
         streakEl.classList.remove('pop', 'break');
         streakEl.style.display = 'none';
+        chargeBarEl.style.display = 'none';
+        chargeBarEl.classList.remove('ready', 'flash');
+        chargeFlashUntil = null;
       }
 
       if (pendingOver && performance.now() >= pendingOver.showAt) {

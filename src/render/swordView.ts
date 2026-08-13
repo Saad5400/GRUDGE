@@ -15,12 +15,19 @@ export interface SwordRenderState {
   tipZ: number;
   tipVX: number;
   tipVZ: number;
+  /** 0..1 ground-slam charge (Player.charge) — ramps the blade glow. */
+  charge: number;
 }
 
 export interface SwordView {
-  update(state: SwordRenderState): void;
+  update(state: SwordRenderState, dt: number): void;
+  /** One-shot bright flash — call when a 'slam-charged' event fires. */
+  chargeReady(): void;
   dispose(): void;
 }
+
+/** Milliseconds the charge-ready flash stays bright. */
+const READY_FLASH_MS = 180;
 
 export function createSwordView(scene: THREE.Scene): SwordView {
   const steel = new THREE.MeshStandardMaterial({
@@ -75,8 +82,20 @@ export function createSwordView(scene: THREE.Scene): SwordView {
   group.add(blade, fuller, tipMesh, tip2, guard, grip, pommel);
   scene.add(group);
 
+  // Charge glow state. Base/charge/white are blended per-frame into steel's emissive;
+  // the blend and the ready-pulse are cosmetic wall-clock animation layered on top of
+  // the sim-driven `charge` value itself, same pattern as playerView's idle bob.
+  const emissiveBase = steel.emissive.clone();
+  const emissiveCharge = new THREE.Color(0xffdd66);
+  const white = new THREE.Color(0xffffff);
+  const scratchEmissive = new THREE.Color();
+  let elapsedMs = 0;
+  let readyFlashUntilMs = -Infinity;
+
   return {
-    update(state) {
+    update(state, dt) {
+      elapsedMs += dt * 1000;
+
       const toTipX = state.tipX - state.playerX;
       const toTipZ = state.tipZ - state.playerZ;
       const tipAng = Math.atan2(toTipX, toTipZ);
@@ -100,6 +119,27 @@ export function createSwordView(scene: THREE.Scene): SwordView {
 
       group.rotation.z =
         THREE.MathUtils.clamp(tipSpeed * 0.02, 0, 0.6) * (Math.sin(tipAng) > 0 ? 1 : -1);
+
+      // Ground-slam charge glow: emissive ramps steel blue -> warm gold as charge
+      // fills, a fast pulse kicks in once full ("ready"), and the one-shot flash from
+      // chargeReady() briefly blows both past that toward white.
+      const charge = THREE.MathUtils.clamp(state.charge, 0, 1);
+      const ready = charge >= 1;
+      const pulse = ready ? 0.5 + 0.5 * Math.sin(elapsedMs * 0.02) : 0;
+      const flashK = readyFlashUntilMs > elapsedMs ? (readyFlashUntilMs - elapsedMs) / READY_FLASH_MS : 0;
+
+      scratchEmissive.copy(emissiveBase).lerp(emissiveCharge, charge);
+      if (flashK > 0) scratchEmissive.lerp(white, flashK);
+      steel.emissive.copy(scratchEmissive);
+      steel.emissiveIntensity = 0.35 + charge * 1.4 + pulse * 1.1 + flashK * 2.2;
+
+      const swell = 1 + charge * 0.06 + pulse * 0.05 + flashK * 0.12;
+      blade.scale.setScalar(swell);
+      tipMesh.scale.setScalar(swell);
+      tip2.scale.setScalar(swell);
+    },
+    chargeReady() {
+      readyFlashUntilMs = elapsedMs + READY_FLASH_MS;
     },
     dispose() {
       scene.remove(group);

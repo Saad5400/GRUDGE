@@ -5,6 +5,7 @@
  */
 import type { Game } from '../core/types';
 import { TELEGRAPH } from '../content/ai';
+import { WALL_SLAM } from '../content/environment';
 
 export interface Audio {
   update(): void;
@@ -90,6 +91,30 @@ export function createAudio(game: Game): Audio {
           beep(523, 0.09, 'triangle', 0.11, 0, 0);
           beep(784, 0.14, 'triangle', 0.12, 60, 0.09);
         }
+      });
+
+      // Ground-slam charge hits full: a bright two-note "ready" chime.
+      game.events.ofType('slam-charged').forEach(() => {
+        beep(700, 0.09, 'sine', 0.12, 260);
+        beep(1050, 0.12, 'triangle', 0.08, 0, 0.05);
+      });
+
+      // Slam release: deep double-layered thump — the biggest impact in the game.
+      game.events.ofType('slam').forEach(() => {
+        beep(60, 0.35, 'sine', 0.22, -30);
+        beep(40, 0.5, 'triangle', 0.18, -20, 0.02);
+      });
+
+      // Execution: a heavy, punchy finishing stab.
+      game.events.ofType('execution').forEach((e) => {
+        beep(e.big ? 140 : 190, 0.09, 'sawtooth', 0.18, -120);
+        beep(50, 0.15, 'square', 0.14, -20, 0.02);
+      });
+
+      // Wall slam: dull masonry thud, louder/deeper the harder the impact.
+      game.events.ofType('wall-slam').forEach((e) => {
+        const kick = Math.max(0, Math.min(1, (e.impact - WALL_SLAM.minImpactSpeed) / 15));
+        beep(70, 0.18 + kick * 0.1, 'triangle', 0.08 + kick * 0.14, -25);
       });
     },
   };

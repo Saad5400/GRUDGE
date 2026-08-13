@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import type { Game, GameView } from '../core/types';
 import { Transform, Velocity, Health, Player, SwordTip } from '../components';
+import { WALL_SLAM } from '../content/environment';
 import { createLights } from './lights';
 import { createArena } from './arena';
 import { createPlayerView } from './playerView';
@@ -14,7 +15,12 @@ import { createSwordView } from './swordView';
 import { createTrail } from './trail';
 import { createEnemyView } from './enemyView';
 import { createParticlePool } from './particles';
+import { createShockwavePool } from './shockwave';
 import { createCameraRig } from './cameraRig';
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
 
 export function createView(game: Game, container: HTMLElement): GameView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -44,6 +50,7 @@ export function createView(game: Game, container: HTMLElement): GameView {
   const trail = createTrail(scene);
   const enemyView = createEnemyView(scene);
   const particles = createParticlePool(scene);
+  const shockwave = createShockwavePool(scene);
 
   const ray = new THREE.Raycaster();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -63,6 +70,7 @@ export function createView(game: Game, container: HTMLElement): GameView {
       particles.clear();
       enemyView.clear();
       trail.clear();
+      shockwave.clear();
     }
 
     for (const e of game.events.ofType('sword-hit')) {
@@ -84,6 +92,37 @@ export function createView(game: Game, container: HTMLElement): GameView {
       const kick = Math.min(1, e.tipSpeed / 20);
       particles.spawnBurst(e.x, 1.1, e.z, 0xffffff, 16 + Math.round(kick * 8), 10 + kick * 4);
     }
+
+    // Ground-slam "ready" cue: a small warm sparkle at the tip plus the sword's own flash.
+    if (game.events.ofType('slam-charged').length > 0) {
+      const eid = game.playerEid;
+      particles.spawnBurst(SwordTip.x[eid], 1.0, SwordTip.z[eid], 0xffe066, 6, 3);
+      swordView.chargeReady();
+    }
+
+    // Slam release: expanding ground ring (pooled, see shockwave.ts) plus a chunky
+    // debris kick at the epicentre — the screen shake/hitstop juice is sim-driven already.
+    for (const e of game.events.ofType('slam')) {
+      shockwave.spawn(e.x, e.z, e.radius, 0xffcf6b);
+      particles.spawnBurst(e.x, 0.35, e.z, 0xffcf6b, 22, 11);
+    }
+
+    // Execution: a decisive kill, visually distinct from an ordinary enemy-died burst —
+    // taller, mixed white/red, and bigger on a brute.
+    for (const e of game.events.ofType('execution')) {
+      const n = e.big ? 26 : 18;
+      const pow = e.big ? 14 : 10;
+      particles.spawnBurst(e.x, 1.3, e.z, 0xffffff, Math.round(n * 0.4), pow);
+      particles.spawnBurst(e.x, 1.0, e.z, 0xd43a3a, n, pow);
+    }
+
+    // Wall slam: masonry dust, scaled by how hard the enemy hit the surface.
+    for (const e of game.events.ofType('wall-slam')) {
+      const kick = clamp01((e.impact - WALL_SLAM.minImpactSpeed) / 15);
+      const count = Math.round((e.big ? 16 : 10) + kick * 10);
+      const pow = (e.big ? 7 : 5) + kick * 6;
+      particles.spawnBurst(e.x, 0.6, e.z, 0x8a7a63, count, pow);
+    }
   }
 
   function render(_alpha: number, frameDt: number): void {
@@ -102,16 +141,18 @@ export function createView(game: Game, container: HTMLElement): GameView {
     const tipVX = SwordTip.vx[eid];
     const tipVZ = SwordTip.vz[eid];
     const tipSpeed = Math.hypot(tipVX, tipVZ);
+    const charge = Player.charge[eid];
 
     playerView.update(
       { x: px, z: pz, face, faceVel, velX, velZ, tipX, tipZ, tipVX, tipVZ, invuln },
       frameDt,
     );
-    swordView.update({ playerX: px, playerZ: pz, tipX, tipZ, tipVX, tipVZ });
+    swordView.update({ playerX: px, playerZ: pz, tipX, tipZ, tipVX, tipVZ, charge }, frameDt);
     trail.update(tipX, tipZ, px, pz, tipSpeed);
     enemyView.update(game.world, px, pz);
 
     particles.update(frameDt);
+    shockwave.update(frameDt);
     arena.update(frameDt);
     cameraRig.update(px, pz, game.state.shake, frameDt);
 
@@ -142,6 +183,7 @@ export function createView(game: Game, container: HTMLElement): GameView {
       trail.dispose();
       enemyView.dispose();
       particles.dispose();
+      shockwave.dispose();
       lights.dispose();
       renderer.dispose();
       renderer.domElement.parentNode?.removeChild(renderer.domElement);

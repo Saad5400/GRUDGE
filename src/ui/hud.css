@@ -53,6 +53,56 @@
   background: #d43a3a;
 }
 
+#hud #chargebar {
+  position: absolute;
+  top: 62px;
+  left: 20px;
+  width: 130px;
+  height: 7px;
+  background: #241f2e;
+  border: 1px solid #000;
+  display: none;
+}
+
+#hud #chargefill {
+  height: 100%;
+  width: 0%;
+  background: #ff8a3c;
+  box-shadow: 0 0 6px rgba(255, 138, 60, 0.6);
+  transition:
+    width 0.05s linear,
+    background 0.15s;
+}
+
+#hud #chargebar.ready #chargefill {
+  background: #ffe066;
+  box-shadow: 0 0 10px rgba(255, 224, 102, 0.9);
+  animation: chargeReadyPulse 0.5s ease-in-out infinite;
+}
+
+#hud #chargebar.flash {
+  animation: chargeFlash 0.26s ease-out;
+}
+
+@keyframes chargeReadyPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes chargeFlash {
+  0% {
+    box-shadow: 0 0 18px 4px rgba(255, 224, 102, 1);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
 #hud #stats {
   position: absolute;
   top: 16px;
