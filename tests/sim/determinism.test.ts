@@ -30,7 +30,7 @@ describe('determinism', () => {
     // Entity ids come from a process-global cursor, so they differ between two
     // worlds in the same process; everything else about the stream must match.
     const strip = (events: GameEvent[]) =>
-      events.map((e) => (e.type === 'enemy-spawned' ? { ...e, eid: 0 } : e));
+      events.map((e) => ('eid' in e ? { ...e, eid: 0 } : e));
     expect(strip(run(a, 400, script))).toEqual(strip(run(b, 400, script)));
   });
 

@@ -52,6 +52,7 @@ export function spawnEnemyAt(
   Enemy.kind[eid] = kind;
   Enemy.hopT[eid] = ctx.rng.next() * stats.spawnHopT;
   Enemy.stun[eid] = 0;
+  Enemy.stagger[eid] = 0;
   Enemy.flash[eid] = 0;
   Enemy.touchCD[eid] = 0;
   Enemy.hitCD[eid] = 0;

@@ -39,6 +39,8 @@ export const Player = defineComponent({
   faceVel: Types.f32,
   /** 0..1 — sustained fast blade work drains it. */
   stamina: Types.f32,
+  /** 0..1 ground-slam charge — builds while planted with a still blade. */
+  charge: Types.f32,
 });
 
 /**
@@ -79,6 +81,12 @@ export const Enemy = defineComponent({
   hopT: Types.f32,
   /** Stun seconds remaining (no AI while stunned). */
   stun: Types.f32,
+  /**
+   * Stagger seconds remaining — the EXECUTION window. Only big openings set it
+   * (parry, ground slam, wall slam), never an ordinary blade hit; a staggered
+   * enemy dies outright to a fast follow-up cut. Always paired with >= as much stun.
+   */
+  stagger: Types.f32,
   /** Hit-flash seconds remaining (render reads this for white flash). */
   flash: Types.f32,
   /** Cooldown before this enemy can damage the player by touch again. */

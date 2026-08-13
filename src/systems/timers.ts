@@ -16,6 +16,7 @@ export function timerSystem(ctx: SimContext): void {
 
   for (const e of enemiesNewestFirst(ctx.world)) {
     Enemy.stun[e] = Math.max(0, Enemy.stun[e] - dt);
+    Enemy.stagger[e] = Math.max(0, Enemy.stagger[e] - dt);
     Enemy.flash[e] = Math.max(0, Enemy.flash[e] - dt);
     Enemy.touchCD[e] = Math.max(0, Enemy.touchCD[e] - dt);
     Enemy.hitCD[e] = Math.max(0, Enemy.hitCD[e] - dt);

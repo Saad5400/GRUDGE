@@ -262,10 +262,7 @@ describe('parry + streak determinism', () => {
       };
     };
     // entity ids come from a process-global cursor, so they differ per world
-    const strip = (events: GameEvent[]) =>
-      events.map((e) =>
-        e.type === 'enemy-spawned' || e.type === 'parry' ? { ...e, eid: 0 } : e,
-      );
+    const strip = (events: GameEvent[]) => events.map((e) => ('eid' in e ? { ...e, eid: 0 } : e));
 
     const a = createGame(4242);
     const b = createGame(4242);

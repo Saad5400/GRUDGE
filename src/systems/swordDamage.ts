@@ -104,6 +104,7 @@ export function swordDamageSystem(ctx: SimContext): void {
 
       ctx.events.emit({
         type: 'sword-hit',
+        eid: e,
         x: cx,
         y: cy,
         z: cz,

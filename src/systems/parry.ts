@@ -85,6 +85,8 @@ export function parrySystem(ctx: SimContext): void {
     Enemy.attackT[e] = 0;
     Enemy.attackCD[e] = PARRY.attackCD;
     Enemy.stun[e] = PARRY.stun;
+    // The stagger is the execution window — the whole point of the riposte.
+    Enemy.stagger[e] = PARRY.stun;
     Enemy.flash[e] = PARRY.flashTime;
     // Consumes the blade contact: no damage from this swing on this enemy.
     Enemy.hitCD[e] = COMBAT.hitCD;

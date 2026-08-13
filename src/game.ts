@@ -8,10 +8,13 @@
  *
  * Pipeline order is load-bearing — it mirrors the reference demo's step(),
  * with the Phase 2 systems slotted where their reads/writes demand:
- *   hitstop → player movement → sword physics → parry (before damage: a parry
- *   consumes the blade contact) → sword damage → timers → attack tokens →
- *   enemy AI → telegraph → collision → touch damage → enemy death → combo
- *   (reads this tick's death events) → waves → shake decay
+ *   hitstop → player movement → sword physics → slam (needs this tick's tip
+ *   speed; a released wave staggers before the cut lands) → parry (before
+ *   damage: a parry consumes the blade contact) → sword damage → execution
+ *   (reads this tick's sword-hit events, before death resolves) → timers →
+ *   attack tokens → enemy AI → telegraph → wall slam (post-integration
+ *   overshoot, before collision clamps it away) → collision → touch damage →
+ *   enemy death → combo (reads this tick's death events) → waves → shake decay
  */
 import { createWorld, removeEntity, addComponent, addEntity, type IWorld } from 'bitecs';
 import {
@@ -38,6 +41,9 @@ import { enemyAISystem } from './systems/enemyAI';
 import { attackTokenSystem } from './systems/attackTokens';
 import { telegraphSystem } from './systems/telegraph';
 import { parrySystem } from './systems/parry';
+import { slamSystem } from './systems/slam';
+import { executionSystem } from './systems/execution';
+import { wallSlamSystem } from './systems/wallSlam';
 import { comboSystem } from './systems/combo';
 import { collisionSystem } from './systems/collision';
 import { touchDamageSystem } from './systems/touchDamage';
@@ -94,6 +100,7 @@ function resetPlayer(eid: number): void {
   Health.invuln[eid] = 0;
   Player.faceVel[eid] = 0;
   Player.stamina[eid] = 1;
+  Player.charge[eid] = 0;
   SwordTip.x[eid] = TIP_START_X;
   SwordTip.z[eid] = TIP_START_Z;
   SwordTip.vx[eid] = 0;
@@ -175,12 +182,15 @@ export function createGame(seed: number): Game {
       hitstopSystem(ctx);
       playerMovementSystem(ctx);
       swordPhysicsSystem(ctx);
+      slamSystem(ctx);
       parrySystem(ctx);
       swordDamageSystem(ctx);
+      executionSystem(ctx);
       timerSystem(ctx);
       attackTokenSystem(ctx);
       enemyAISystem(ctx);
       telegraphSystem(ctx);
+      wallSlamSystem(ctx);
       collisionSystem(ctx);
       touchDamageSystem(ctx);
       enemyDeathSystem(ctx);

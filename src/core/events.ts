@@ -9,6 +9,7 @@ export type GameEvent =
   /** Blade connected with an enemy. killed=true when the hit was lethal. */
   | {
       type: 'sword-hit';
+      eid: number;
       x: number;
       y: number;
       z: number;
@@ -32,6 +33,14 @@ export type GameEvent =
   | { type: 'parry'; eid: number; x: number; z: number; tipSpeed: number }
   /** Kill streak went up or expired. */
   | { type: 'streak-changed'; streak: number; best: number }
+  /** A fast cut on a staggered enemy finished it outright. */
+  | { type: 'execution'; eid: number; x: number; z: number; big: boolean }
+  /** Ground-slam charge just reached full (audio/visual "ready" cue). */
+  | { type: 'slam-charged' }
+  /** A charged swing released the shockwave. */
+  | { type: 'slam'; x: number; z: number; radius: number }
+  /** An enemy was smashed into a wall or pillar hard enough to hurt. */
+  | { type: 'wall-slam'; eid: number; x: number; z: number; big: boolean; impact: number }
   | { type: 'game-reset' };
 
 export type GameEventType = GameEvent['type'];
