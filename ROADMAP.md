@@ -53,11 +53,15 @@ button-based light/heavy attack scheme:
       blade segment, wave spawner, game-feel pass (hit-stop, screen shake,
       knockback, i-frames). _Shipped via the demo port; the "killing one enemy
       is satisfying" gate is a human playtest call on the published build._
-- [ ] **Phase 2 — Combat vertical slice.** _In flight._ **2a (now):** group AI
+- [ ] **Phase 2 — Combat vertical slice.** _In flight._ **2a (done):** group AI
       attack tokens (max simultaneous attackers), telegraphed brute lunges,
       parry vs. windups (planted stance), kill-streak combo meter with heal
-      milestones. **2b (next):** charged abilities (Execution, Ground Slam),
-      grab & throw, environmental kills. Exit: a 3-minute arena fight is fun.
+      milestones. **2b (now):** executions (fast cut on a staggered enemy),
+      ground slam (planted-still charge → shockwave release), wall slams
+      (environmental kills v1 — knockback into walls/pillars hurts and
+      staggers). Grab & throw is deferred to the Rapier decision
+      (`docs/decisions/0002-*.md`) — wall slams cover the environmental-kill
+      pillar until then. Exit: a 3-minute arena fight is fun.
 - [ ] **Phase 3 — Souls-like structure.** Archetypes (grunt/shield/berserker/
       archer), telegraph AI, death cost (XP drop on death, recoverable), checkpoints,
       healing charges, difficulty data pass.

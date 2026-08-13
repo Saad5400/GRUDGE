@@ -152,10 +152,49 @@ Getting hit — or letting the window lapse — resets it to zero. Every 5th
 streak kill heals 1 hp (capped). The meter is deliberately fragile: it
 rewards aggressive, clean play, which is the whole cursor-sword thesis.
 
-## Future (Phase 2b+ hooks)
+## Phase 2b — executions, ground slam, wall slams
 
-- **Executions** — likely a charged finisher on staggered/low-hp enemies
-  (parry already produces the stagger state this needs).
-- **Grab & throw / environmental kills** — physics object interaction,
-  revisit once ragdoll/impulse needs justify pulling in Rapier (see
-  `docs/decisions/0002-*.md`).
+Numbers live in `src/content/execution.ts`, `src/content/slam.ts` and
+`src/content/environment.ts`; the content files win over the prose below.
+
+### Stagger — the opening, as a first-class state
+
+`Enemy.stagger` is distinct from ordinary hit-stun: only **big openings** set
+it (a parry, the ground slam, a wall slam) — a regular blade hit never does.
+Stagger is the execution window, and everything in 2b feeds it.
+
+### Execution — the riposte payoff
+
+A cut at tip speed ≥ 10 on a **staggered** enemy kills it outright, whatever
+its hp. The normal hit's damage and knockback land first (an execution is that
+same cut, elevated by the opening), the kill resolves through the ordinary
+death path so streaks count it, and half a stamina bar is refunded. This is
+why the parry stagger is 1.4s: read the windup, ring the bell, take the head.
+
+### Ground slam — the charged ability, still no button
+
+Planting with a **still** blade (tip speed < 1.5) charges 0→1 over 0.9s
+(`Player.charge`). At full charge, the next swing that crosses tip speed 10
+releases a shockwave centred on the tip: 2 damage, hard radial knockback,
+pop-up, and a 0.8s **stagger** to everything within radius 3.5 — a crowd
+opener that chains straight into executions. Charge drains (2.5/s) whenever
+you're not planted-and-still, so it survives the release swing but not a
+stroll. Charging is a bet: standing still in a souls-like is never free.
+
+### Wall slams — masonry is a weapon
+
+An enemy carried into the arena wall or a pillar at ≥ 9 units/s of
+into-surface speed takes impact damage (1 + 1 per 8 over threshold), is
+**staggered** 0.9s, and bounces off (restitution 0.45). Knockback near walls
+is now positioning play — and a brute whose lunge you sidestep next to a wall
+slams itself, attack broken, execution served. Below the threshold nothing
+happens: walking into a wall is still just walking into a wall.
+
+## Future (Phase 2c+ hooks)
+
+- **Grab & throw** — physics object interaction; deliberately deferred until
+  ragdoll/impulse needs justify pulling in Rapier (see
+  `docs/decisions/0002-*.md`). Wall slams already give throws a payoff surface
+  when they arrive.
+- **More environment** — hazards beyond walls/pillars (braziers, pits, spike
+  racks) once dungeon rooms (Phase 6) exist to place them in.
